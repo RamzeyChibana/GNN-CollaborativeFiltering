@@ -8,6 +8,7 @@ from torch_geometric.utils import degree
 
 
 
+
 class NgcfLayer(MessagePassing):
     def __init__(self,in_dim,out_dim,norm_dict,dropout_rate=0.4):
         super(NgcfLayer,self).__init__(aggr="add")
@@ -62,11 +63,12 @@ class NgcfLayer(MessagePassing):
     
 
 class NGCF(torch.nn.Module):
-    def __init__(self,graph:HeteroData,h_dim,layer_dim,dropout,lambd=1e-5):
+    def __init__(self,graph:HeteroData,h_dim,layer_dim,dropout,batch_size,lambd=1e-5):
         super(NgcfLayer,self).__init__()
         self.lambd = lambd
         self.num_layers = layer_dim
         self.graph = graph
+        self.batch_size = batch_size
 
         num_users = graph["user"].num_users
         num_items = graph["item"].num_users
@@ -115,6 +117,26 @@ class NGCF(torch.nn.Module):
         neg_certain_emb = item_embds[neg_items,:]
 
         return user_certain_emb,pos_certain_emb,neg_certain_emb
+    
+    def BprLoss(self,users,pos_items,neg_items):
+        y_pos = torch.sum(torch.multiply(users,pos_items),dim=1)
+        y_neg = torch.sum(torch.multiply(users,neg_items),dim=1)
+
+        loss = torch.log(torch.sigmoid(y_pos-y_neg))
+        ln_loss = torch.negative(torch.mean(loss))
+
+        regularization = (torch.sum(torch.pow(users,2))  + torch.sum(torch.pow(pos_items,2))  + torch.sum(torch.pow(neg_items,2)) )/ 2
+        regularization = regularization/self.batch_size
+
+        emb_loss = self.lambd * regularization
+
+
+        return ln_loss+emb_loss ,ln_loss,emb_loss
+
+
+
+
+
 
 
 
