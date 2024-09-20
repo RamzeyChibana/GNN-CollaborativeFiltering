@@ -64,24 +64,25 @@ class NgcfLayer(MessagePassing):
 
 class NGCF(torch.nn.Module):
     def __init__(self,graph:HeteroData,h_dim,layer_dim,dropout,batch_size,lambd=1e-5):
-        super(NgcfLayer,self).__init__()
+        super(NGCF,self).__init__()
         self.lambd = lambd
-        self.num_layers = layer_dim
+        self.layer_dim = layer_dim
+        self.num_layers = len(self.layer_dim)
         self.graph = graph
         self.batch_size = batch_size
 
-        num_users = graph["user"].num_users
-        num_items = graph["item"].num_users
+        num_users = graph["user"].num_nodes
+        num_items = graph["item"].num_nodes
         norm_dict = dict()
         for (srctype,etype,dsttype) in graph.edge_types:
-            if srctype != dsttype:
-                edge_index = graph[(srctype,etype,dsttype)].edge_index
-                src,dst = edge_index
-                src_degree = degree(src,graph[srctype].num_nodes,dtype=torch.float32)[src]
-                dst_degree = degree(dst,graph[dsttype].num_nodes,dtype=torch.float32)[dst]
+            
+            edge_index = graph[(srctype,etype,dsttype)].edge_index
+            src,dst = edge_index
+            src_degree = degree(src,graph[srctype].num_nodes,dtype=torch.float32)[src]
+            dst_degree = degree(dst,graph[dsttype].num_nodes,dtype=torch.float32)[dst]
 
-                norm = torch.pow(src_degree*dst_degree,-0.5).unsqueeze(1)
-                norm_dict[(srctype,etype,dsttype)]=norm
+            norm = torch.pow(src_degree*dst_degree,-0.5).unsqueeze(1)
+            norm_dict[(srctype,etype,dsttype)]=norm
 
 
 
@@ -105,16 +106,20 @@ class NGCF(torch.nn.Module):
 
         user_embds.append(h_dict["user"])
         item_embds.append(h_dict["item"])
+
         for layer in self.layers:
-            h_dict = layer(h_dict)
+            h_dict = layer(self.graph,h_dict)
             user_embds.append(h_dict["user"])
-            user_embds.append(h_dict["user"])
+            item_embds.append(h_dict["item"])
         user_embds = torch.cat(user_embds,dim=1)
         item_embds = torch.cat(item_embds,dim=1)
+        print(h_dict["user"].shape)
+     
 
         user_certain_emb = user_embds[users,:]
         pos_certain_emb = item_embds[pos_items,:]
         neg_certain_emb = item_embds[neg_items,:]
+        
 
         return user_certain_emb,pos_certain_emb,neg_certain_emb
     
@@ -138,7 +143,43 @@ class NGCF(torch.nn.Module):
 
 
 
+if __name__=="__main__":
+    print("Test the model:")
+    def create_sample_graph_pyg():
+        # Create a PyG heterogeneous graph
+        data = HeteroData()
 
+        # Add node features for 'user' and 'item' node types
+        data['user'].x = torch.randint(low=1,high=9,size=(3, 5))  # 3 'user' nodes, feature size 5
+        data['item'].x = torch.randint(low=10,high=19,size=(3, 5))  # 3 'item' nodes, feature size 5
+
+        # Add self-loop edges for 'follows' relation (user-user self-loops)
+
+        # Add user-item interaction edges for 'likes' relation (varied interactions)
+        data['user', 'likes', 'item'].edge_index = torch.tensor([[0, 0, 2, 2], [0, 1, 2, 1]])
+
+        # Add item-user interaction edges for 'liked_by' relation (reverse of 'likes')
+        # data['item', 'liked_by', 'user'].edge_index = torch.tensor([[0, 1, 2, 1], [0, 0, 2, 2]])
+        data['user', 'follows', 'user'].edge_index = torch.tensor([[0, 1, 2], [0, 1, 2]])  # Self-loops
+
+        return data
+
+    graph = create_sample_graph_pyg()
+    model = NGCF(graph,16,[16,16],0.3,4)
+
+    users = np.random.randint(0,3,size=(4,1))
+    pos_items = np.random.randint(0,3,size=(4,1))
+    neg_items = np.random.randint(0,3,size=(4,1))
+
+    users = torch.tensor(users)
+    pos_items = torch.tensor(pos_items)
+    neg_items = torch.tensor(neg_items)
+    result = model(users,pos_items,neg_items)
+    print(result[0].shape)
+    print(result[1].shape)
+    print(result[2].shape)
+    print("loss")
+    print(model.BprLoss(result[0],result[1],result[2]))
 
         
 
