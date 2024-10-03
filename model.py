@@ -18,10 +18,17 @@ class NgcfLayer(MessagePassing):
         self.drop = nn.Dropout(dropout_rate)
         self.norm_dict = norm_dict
 
+        torch.nn.init.xavier_uniform_(self.W1.weight)
+        # torch.nn.init.xavier_uniform_(self.W1.bias)
+        torch.nn.init.xavier_uniform_(self.W2.weight)
+        # torch.nn.init.xavier_uniform_(self.W2.bias)
+
+
     
     def forward(self,graph:HeteroData,embedding_dict) :
 
         edge_types = graph.edge_types
+
         out_dict = dict()
         # iterate over all edge types (Hetero Graph)
         for (src_type,etype,dst_type) in edge_types:
@@ -55,6 +62,7 @@ class NgcfLayer(MessagePassing):
 
     def message(self,x_j,x_i,etype,norm):
         if etype == "self_loop":
+      
             return self.W1(x_j)
         elif etype == "cross":
             return norm*self.W1(x_j)+self.W2(x_j*x_i)
@@ -69,17 +77,18 @@ class NGCF(torch.nn.Module):
         self.layer_dim = layer_dim
         self.num_layers = len(self.layer_dim)
         self.graph = graph
-        self.batch_size = batch_size
-
-        num_users = graph["user"].num_nodes
-        num_items = graph["item"].num_nodes
+       
+    
+        num_users = self.graph["user"].num_nodes
+        num_items = self.graph["item"].num_nodes
         norm_dict = dict()
-        for (srctype,etype,dsttype) in graph.edge_types:
+        for (srctype,etype,dsttype) in self.graph.edge_types:
             
-            edge_index = graph[(srctype,etype,dsttype)].edge_index
+            edge_index = self.graph[(srctype,etype,dsttype)].edge_index
             src,dst = edge_index
-            src_degree = degree(src,graph[srctype].num_nodes,dtype=torch.float32)[src]
-            dst_degree = degree(dst,graph[dsttype].num_nodes,dtype=torch.float32)[dst]
+          
+            dst_degree = degree(dst,self.graph[dsttype].num_nodes)[dst]
+            src_degree = degree(src,self.graph[srctype].num_nodes)[src]
 
             norm = torch.pow(src_degree*dst_degree,-0.5).unsqueeze(1)
             norm_dict[(srctype,etype,dsttype)]=norm
@@ -91,7 +100,7 @@ class NGCF(torch.nn.Module):
         initzer = nn.init.xavier_uniform_
         self.emb_dict = nn.ParameterDict({"user":initzer(nn.Parameter(torch.empty(size=(num_users,h_dim)))),"item":initzer(nn.Parameter(torch.empty(size=(num_items,h_dim))))})
 
-        self.layers = []
+        self.layers = torch.nn.ModuleList()
         self.layers.append(NgcfLayer(h_dim,layer_dim[0],norm_dict,dropout_rate=dropout))
         for i in range(self.num_layers-1):
             self.layers.append(NgcfLayer(layer_dim[i],layer_dim[i+1],norm_dict,dropout_rate=dropout))
@@ -113,8 +122,9 @@ class NGCF(torch.nn.Module):
             item_embds.append(h_dict["item"])
         user_embds = torch.cat(user_embds,dim=1)
         item_embds = torch.cat(item_embds,dim=1)
-        print(h_dict["user"].shape)
+        
      
+    
 
         user_certain_emb = user_embds[users,:]
         pos_certain_emb = item_embds[pos_items,:]
@@ -122,6 +132,10 @@ class NGCF(torch.nn.Module):
         
 
         return user_certain_emb,pos_certain_emb,neg_certain_emb
+    
+    def rating(self, u_g_embeddings, pos_i_g_embeddings):
+        return torch.matmul(u_g_embeddings, pos_i_g_embeddings.t())
+    
     
     def BprLoss(self,users,pos_items,neg_items):
         y_pos = torch.sum(torch.multiply(users,pos_items),dim=1)
@@ -131,7 +145,7 @@ class NGCF(torch.nn.Module):
         ln_loss = torch.negative(torch.mean(loss))
 
         regularization = (torch.sum(torch.pow(users,2))  + torch.sum(torch.pow(pos_items,2))  + torch.sum(torch.pow(neg_items,2)) )/ 2
-        regularization = regularization/self.batch_size
+        regularization = regularization/users.shape[0]
 
         emb_loss = self.lambd * regularization
 
