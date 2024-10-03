@@ -42,7 +42,7 @@ optimizer = torch.optim.Adam(model.parameters(),learning_rate)
 n_batch = data_generator.n_train // batch_size + 1
 
 
-result = test(model,data_generator,batch_size,Ks)
+# result = test(model,data_generator,batch_size,Ks)
 
 for epoch in range(num_epochs):
     pbar = tqdm(total=data_generator.n_train)
