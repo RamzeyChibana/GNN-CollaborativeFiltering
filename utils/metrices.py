@@ -6,6 +6,9 @@ import numpy as np
 def Hit_at_k(batch_rates,k):
     batch_rates = batch_rates[:,:k]
     return np.sum(np.max(batch_rates,axis=1))
+def Ramzey(batch_rates,k):
+    batch_rates = batch_rates[:,:k]
+    return np.max(batch_rates,axis=1)
 
 
 def Percision_at_k(batch_rates,k):
