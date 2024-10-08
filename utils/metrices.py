@@ -6,6 +6,12 @@ import numpy as np
 def Hit_at_k(batch_rates,k):
     batch_rates = batch_rates[:,:k]
     return np.sum(np.max(batch_rates,axis=1))
+
+
+def Recall(batch_rates,k,user_pos):
+    batch_rates = batch_rates[:,:k]
+    return np.sum(np.sum(batch_rates,axis=1)/user_pos)
+
 def Ramzey(batch_rates,k):
     batch_rates = batch_rates[:,:k]
     return np.max(batch_rates,axis=1)

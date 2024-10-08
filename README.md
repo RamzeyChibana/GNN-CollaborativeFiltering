@@ -5,41 +5,41 @@ This repository implements the Neural Graph Collaborative Filtering (NGCF) model
 
 Our implementation reproduces the key components of NGCF, including embedding propagation and message passing, while extending it for performance comparison across datasets like MovieLens and Gorwala.
 
-<!-- ## Papar Information
-- Title:  `paper name`
-- Authors:  `A`,`B`,`C`
-- Preprint: [https://arxiv.org/abs/xx]()
-- Full-preprint: [paper position]()
-- Video: [video position]() -->
+
+## Results
+#### on Gowalla 
+
+|    |  Hit@k  | Eecall@k | Ndcg@k  |
+|-----------|---------|----------|--------|
+| Mine    |  0.703 | 0.256     | 0.278    |
+| Paper   |  0.774 | 0.331     | 	0.324   |
 
 
-
-## Install & Dependence
-- python 
-- torch
-- torch_geometric
-- numpy
-- pandas
 
 ## Datasets
 
 | Dataset   | #Users | #Items | #Interactions  |
 |-----------|-----------------|----------|--------|
 | MovieLens |  6040  |  3883  | 1000209  |
-| Gorwala   |  29858 | 40981     | 1027370    |
+| Gowalla    |  29858 | 40981     | 1027370    |
+
+
+## Install & Dependence
+- python 
+- torch == 2.4.0+cu124
+- numpy==1.26.4
+- pandas == 1.4.3
+- torch_geometric == 2.5.3
+
 
 
 
 ## Run Code
-- for train
+- ### for train
   ```sh
   python main.py --batch_size 1024 --layers 16 16  --dim 16 --ks 20, 40, 60 --exp exp_0
   ```
-- for test
-  ```
-  python test.py
-  ```
-important arguments for **train.py** : 
+important arguments for **main.py** : 
 * `--batch_size` batch size of nodes
 * `--epochs` run the model of how many epochs
 * `--learning_rate` learning rate 
@@ -49,7 +49,19 @@ important arguments for **train.py** :
 * `--ks` @K to test with (like NDCG@k / Hit@k .. )
 * `--device` device to train with { cpu / gpu }
 * `--verbose` How much more infos in epoch 0:nothing , 1:loss , 2:Meterices , 3:time
+* `--exp` Continue the Training of existing Experiement
 
+
+ - ### for test
+    ```sh
+    python test.py --batch_size 1024 --ks 20, 40, 60 --exp exp_0
+    ```
+
+important arguments for **test.py** : 
+* `--batch_size` batch size of nodes
+* `--ks` @K to test with (like NDCG@k / Hit@k .. )
+* `--exp`  Experiement you want to Test
+* `--device` device to test with { cpu / gpu }
 
 
 ## Directory Hierarchy

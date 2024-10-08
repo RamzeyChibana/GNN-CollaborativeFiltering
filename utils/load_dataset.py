@@ -174,12 +174,7 @@ class Gorwala(object):
 
       
 
-        # data_dict = {
-        #     ("user", "user_self", "user"): torch.tensor([user_selfs, user_selfs]),
-        #     ("item", "item_self", "item"): torch.tensor([item_selfs, item_selfs]),
-        #     ("user", "ui", "item"): torch.tensor([user_item_src, user_item_dst]),
-        #     ("item", "iu", "user"): torch.tensor([user_item_dst, user_item_src]),
-        # }
+        
 
         self.graph = HeteroData()
         self.graph[("user", "user_self", "user")].edge_index = torch.tensor([user_selfs, user_selfs])
@@ -238,14 +233,7 @@ class Gorwala(object):
     def print_statistics(self):
         print("n_users=%d, n_items=%d" % (self.n_users, self.n_items))
         print("n_interactions=%d" % (self.n_train + self.n_test))
-        print(
-            "n_train=%d, n_test=%d, sparsity=%.5f"
-            % (
-                self.n_train,
-                self.n_test,
-                (self.n_train + self.n_test) / (self.n_users * self.n_items),
-            )
-        )
+        
 
 
 

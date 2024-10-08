@@ -5,7 +5,6 @@ import numpy as np
 from tqdm import tqdm 
 from torchsummary import summary
 from utils.evaluate import test
-# from dgll.dgl_test import dgtest
 from time import time
 from utils.parser import make_parser
 import os
@@ -71,6 +70,7 @@ h_dim = args.dim
 layers = args.layers
 dropout = args.dropout
 Ks = args.ks
+lamda = args.lamda
 
 
 '''
@@ -94,7 +94,7 @@ Make NGCF Model
 '''
 
 
-model = NGCF(graph,h_dim,layers,dropout)
+model = NGCF(graph,h_dim,layers,dropout,lamda)
 model=model.to(device)
 optimizer = torch.optim.Adam(model.parameters(),learning_rate)
 
@@ -106,15 +106,15 @@ if not new :
     epoch = checkpoint["epoch"]
     loss = checkpoint["loss"]
     best_ep = checkpoint["best_ndcg@k"]
-    file_csv = open(f'Experiments/history_{file}.csv', 'a', newline='')
+    file_csv = open(f'Experiments/{file}/history.csv', 'a', newline='')
     writer = csv.writer(file_csv)
    
 else :
     epoch = 0
     best_ep = -np.inf
-    file_csv = open(f'Experiments/{file}/history_{file}.csv', 'w', newline='')
+    file_csv = open(f'Experiments/{file}/history.csv', 'w', newline='')
     writer = csv.writer(file_csv)
-    metric_columns = ["Epoch", "Train Loss"]+[f"Hit@{k}" for k in Ks ]+[f"Percision@{k}" for k in Ks]+[f"Ndcg@{k}" for k in Ks]
+    metric_columns = ["Epoch", "Train Loss"]+[f"Hit@{k}" for k in Ks ]+[f"Recall@{k}" for k in Ks]+[f"Ndcg@{k}" for k in Ks]
     writer = csv.writer(file_csv)
     writer.writerow(metric_columns)
 
@@ -125,7 +125,7 @@ Training
 
 n_batch = data_generator.n_train // batch_size + 1
 
-for epoch in range(epoch,epoch+num_epochs):
+for epoch in range(epoch+1,epoch+1+num_epochs):
     pbar = tqdm(total=data_generator.n_train)
     pbar.set_description(f"Epoch {epoch}:")
     loss,logloss , regloss = 0,0,0
@@ -162,7 +162,7 @@ for epoch in range(epoch,epoch+num_epochs):
     t_end = time()
     t_epoch = t_end - t_start
 
-    result = test(model,data_generator,1,Ks)
+    result = test(model,data_generator,batch_size,Ks)
 
     if best_ep+ epsilon <= result["NDGC@k"][0]:
         best_ep = result["NDGC@k"][0]
@@ -180,7 +180,7 @@ for epoch in range(epoch,epoch+num_epochs):
     torch.save(checkpoint,f"Experiments/{file}/last_checkpoint.pth")
     torch.save(model.state_dict(),f"Experiments/{file}/last_weights.pt")
 
-    row_csv = [epoch,float(loss/n_batch)]+result["Hit@k"].tolist()+result["Percision@k"].tolist()+result["NDGC@k"].tolist()
+    row_csv = [epoch,float(loss/n_batch)]+result["Hit@k"].tolist()+result["Recall@k"].tolist()+result["NDGC@k"].tolist()
     writer.writerow(row_csv)
 
     
@@ -188,11 +188,11 @@ for epoch in range(epoch,epoch+num_epochs):
                      forward time {forward_time:.2f}s | {forward_time/t_epoch:.2f}% of epoch ,\
                      backward time {backward_time:.2f}s | {backward_time/t_epoch:.2f}% of epoch" 
 
-    loss_verbose = f"Epoch {epoch}:{loss/n_batch}=[{regloss/n_batch}+{logloss/n_batch}]"
+    loss_verbose = f"Epoch {epoch}:loss={loss/n_batch}=[{regloss/n_batch}+{logloss/n_batch}]"
     metric = []
 
     for i,k in enumerate(Ks):
-        metric.append(f"Hit@{k}: {result['Hit@k'][i]:.3f},Precision@{k}: {result['Percision@k'][i]:.3f}, NDCG@{k}: {result['NDGC@k'][i]:.3f}")
+        metric.append(f"Hit@{k}: {result['Hit@k'][i]:.3f} , Precision@{k}: {result['Percision@k'][i]:.3f} , Recall@{k}:{result['Recall@k'][i]:.3f} , NDCG@{k}: {result['NDGC@k'][i]:.3f}")
     test_verbose = "\n".join(metric)
     
     if verbose > 0 :

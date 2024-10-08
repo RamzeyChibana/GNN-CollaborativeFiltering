@@ -16,15 +16,15 @@ if __name__=="__main__":
     parser = test_parser()
     args = parser.parse_args()
 
-    exp = args.exp
     batch_size = args.batch_size
     Ks = args.ks
     if args.device=="gpu":
         device = torch.device("cuda")
     else :
         device = torch.device("cpu")
-    exps = os.listdir("Experiments")
 
+    exp = args.exp
+    exps = os.listdir("Experiments")
     if exp not in exps :
         raise ValueError(f"There is no Experiement {exp} to test")
     
@@ -43,7 +43,7 @@ if __name__=="__main__":
     else :
         raise TypeError("Invalid dataset ..")
 
-    model = NGCF(data_generator.graph.to(device),exp_args.dim,exp_args.layers,exp_args.dropout).to(device)
+    model = NGCF(data_generator.graph.to(device),exp_args.dim,exp_args.layers,exp_args.dropout,exp_args.lamda).to(device)
     model.load_state_dict(torch.load(os.path.join("Experiments",f"{exp}","best_weights.pt"),weights_only=True))
 
 
