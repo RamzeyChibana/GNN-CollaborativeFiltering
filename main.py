@@ -94,7 +94,7 @@ Make NGCF Model
 '''
 
 
-model = NGCF(graph,h_dim,layers,dropout,batch_size)
+model = NGCF(graph,h_dim,layers,dropout)
 model=model.to(device)
 optimizer = torch.optim.Adam(model.parameters(),learning_rate)
 
@@ -192,7 +192,7 @@ for epoch in range(epoch,epoch+num_epochs):
     metric = []
 
     for i,k in enumerate(Ks):
-        metric.append(f"Hit@{k}: {result['Hit@k'][i]},Precision@{k}: {result['Percision@k'][i]}, NDCG@{k}: {result['NDGC@k'][i]}")
+        metric.append(f"Hit@{k}: {result['Hit@k'][i]:.3f},Precision@{k}: {result['Percision@k'][i]:.3f}, NDCG@{k}: {result['NDGC@k'][i]:.3f}")
     test_verbose = "\n".join(metric)
     
     if verbose > 0 :

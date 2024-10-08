@@ -71,7 +71,7 @@ class NgcfLayer(MessagePassing):
     
 
 class NGCF(torch.nn.Module):
-    def __init__(self,graph:HeteroData,h_dim,layer_dim,dropout,batch_size,lambd=1e-5):
+    def __init__(self,graph:HeteroData,h_dim,layer_dim,dropout,lambd=1e-5):
         super(NGCF,self).__init__()
         self.lambd = lambd
         self.layer_dim = layer_dim
