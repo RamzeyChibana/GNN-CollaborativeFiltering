@@ -78,6 +78,7 @@ important arguments for **test.py** :
 |    |—— parser.py
 |    |—— evaluate.py
 |  
-|—— main.py
 |—— model.py
+|—— main.py
+|—— test.py
 ```
