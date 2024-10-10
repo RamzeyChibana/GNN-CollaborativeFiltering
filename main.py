@@ -80,7 +80,7 @@ Choose Dataset to make Data generator
 if args.dataset == "movielens":
     data_generator = MovieLens(batch_size=batch_size)
 elif args.dataset == "gorwala" :
-    data_generator = Gorwala("D:\df\Master\gowalla",batch_size=batch_size)
+    data_generator = Gorwala("Data\gowalla",batch_size=batch_size)
 else :
     raise TypeError("Invalid dataset ..")
 

@@ -1,0 +1,23 @@
+{
+    "batch_size": 1024,
+    "epochs": 50,
+    "learning_rate": 0.0001,
+    "lamda": 1e-05,
+    "dim": 64,
+    "layers": [
+        64,
+        64
+    ],
+    "dataset": "gorwala",
+    "dropout": 0.1,
+    "ks": [
+        20,
+        40,
+        60,
+        80,
+        100
+    ],
+    "device": "gpu",
+    "exp": null,
+    "verbose": 2
+}

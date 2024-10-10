@@ -1,15 +1,11 @@
-import multiprocessing.pool
+
 import numpy as np
-import heapq
-# import multiprocessing
 from utils.metrices import *
 from utils.load_dataset import MovieLens
 from time import time
 import heapq
 import torch
 from tqdm import tqdm
-# cores = multiprocessing.cpu_count()
-# pool = multiprocessing.Pool(cores)
 
 
 
@@ -57,7 +53,10 @@ def test(model,data:MovieLens,batch_size,Ks):
     
     users = list(data.test_set.keys())
     num_users = len(users)
-
+    ratings_time = 0
+    check_time = 0
+    sorting_time = 0
+    metrics_time = 0
    
     user_test = data.test_set
     user_train = data.train_set
@@ -66,6 +65,7 @@ def test(model,data:MovieLens,batch_size,Ks):
     n_batch = num_users // batch_size 
     pbar = tqdm(total=num_users)
     pbar.set_description("Testing :")
+    t_start = time()
     for batch in range(0,num_users,batch_size):
        
         t1 = time()
@@ -76,14 +76,18 @@ def test(model,data:MovieLens,batch_size,Ks):
         batch_ratings = model.rating(users_batch_emb,items_emb)
         t2 = time()
         batch_ratings = torch.argsort(batch_ratings,dim=1,descending=True)
-        
-        
+    
         t3 = time()
+        print(batch_ratings.shape)
         batch_ratings,user_pos = check_batch(batch_ratings.detach().cpu().numpy(),user_test,user_train,users_batch,K)
         t4 = time()
         result_batch = get_performence(batch_ratings,user_pos,Ks)
         t5 = time()
-        # print(f"rating :{t2-t1} ,check_batch :{t3-t2},sorting :{t4-t3},metrics :{t5-t4} ")
+        "rating :{t2-t1} ,check_batch :{t3-t2},sorting :{t4-t3},metrics :{t5-t4} "
+        ratings_time += t2-t1
+        check_time += t4- t3
+        sorting_time += t3 - t2
+        metrics_time += t5 - t4
         result["Hit@k"]+=result_batch["Hit@k"]/num_users
         result["Percision@k"]+=result_batch["Percision@k"]/num_users
         result["NDGC@k"]+=result_batch["NDGC@k"]/num_users
@@ -93,10 +97,10 @@ def test(model,data:MovieLens,batch_size,Ks):
         pbar.update(batch_size)
     pbar.close
     
-    
+    t_end = time()
 
     
-    return result
+    return result ,(ratings_time,check_time,sorting_time,metrics_time,t_end-t_start)
 
 
 
