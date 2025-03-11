@@ -1,4 +1,4 @@
-from utils.load_dataset import MovieLens,Gorwala
+from utils.load_dataset import MovieLens,Gorwala,deepGorwala
 from model import NGCF
 import torch
 import numpy as np
@@ -11,7 +11,7 @@ import os
 import csv
 import json
 import argparse
-
+from torch.utils.data import DataLoader
 
 
 def save_args(args, filename='args.json'):
@@ -85,14 +85,15 @@ else :
     raise TypeError("Invalid dataset ..")
 
 # Load Graph 
-graph = data_generator.graph
-graph = graph.to(device)
 
 
 '''
 Make NGCF Model
 '''
 
+
+graph = data_generator.graph
+graph = graph.to(device)
 
 model = NGCF(graph,h_dim,layers,dropout,lamda)
 model=model.to(device)
@@ -114,7 +115,7 @@ else :
     best_ep = -np.inf
     file_csv = open(f'Experiments/{file}/history.csv', 'w', newline='')
     writer = csv.writer(file_csv)
-    metric_columns = ["Epoch", "Train Loss"]+[f"Hit@{k}" for k in Ks ]+[f"Recall@{k}" for k in Ks]+[f"Ndcg@{k}" for k in Ks]
+    metric_columns = ["Epoch", "Train Loss"]+[f"Hit@{k}" for k in Ks ]+[f"Recall@{k}" for k in Ks]+[f"Ndcg@{k}" for k in Ks]+["epoch time","load Data time","forward time","embeds time","backward time"]
     writer = csv.writer(file_csv)
     writer.writerow(metric_columns)
 
@@ -125,44 +126,49 @@ Training
 
 n_batch = data_generator.n_train // batch_size + 1
 
-for epoch in range(epoch+1,epoch+1+num_epochs):
+for epoch in range(epoch+1, epoch+1+num_epochs):
     pbar = tqdm(total=data_generator.n_train)
     pbar.set_description(f"Epoch {epoch}:")
-    loss,logloss , regloss = 0,0,0
-    t_start= time()
+    loss, logloss, regloss = 0, 0, 0
+    t_start = time()
     load_data_time = 0
     forward_time = 0
     backward_time = 0
+
     for batch in range(n_batch):
         t1 = time()
+        
         users, pos_items, neg_items = data_generator.sample()
-
-    
-        optimizer.zero_grad()
+        users = torch.tensor(users, dtype=torch.long, device=device)
+        pos_items = torch.tensor(pos_items, dtype=torch.long, device=device)
+        neg_items = torch.tensor(neg_items, dtype=torch.long, device=device)
         t2 = time()
-        user_emb,pos_emb,neg_emb = model(users,pos_items,neg_items)
+        load_data_time += t2 - t1
+
+        optimizer.zero_grad()
+        users_embds, items_embds = model()
         t3 = time()
-        # backward
-        batch_loss,batch_logloss,batch_regloss = model.BprLoss(user_emb,pos_emb,neg_emb)
-        batch_loss.backward() 
+        forward_time += t3 - t2
+
+        user_emb = users_embds[users, :]
+        pos_emb = items_embds[pos_items, :]
+        neg_emb = items_embds[neg_items, :]
+
+        batch_loss, batch_logloss, batch_regloss = model.BprLoss(user_emb, pos_emb, neg_emb)
+        batch_loss.backward()
         optimizer.step()
         t4 = time()
+        backward_time += t4 - t3
 
-        load_data_time += t2 - t1
-        forward_time += t3 - t2
-        backward_time +=t4 - t3
-
-
-
-        loss +=batch_loss
-        logloss += batch_logloss
-        regloss += batch_regloss
+        loss += batch_loss.item()
+        logloss += batch_logloss.item()
+        regloss += batch_regloss.item()
         pbar.update(batch_size)
     pbar.close()
     t_end = time()
     t_epoch = t_end - t_start
 
-    result = test(model,data_generator,batch_size,Ks)
+    result, _ = test(model, data_generator, batch_size, Ks)
 
     if best_ep+ epsilon <= result["NDGC@k"][0]:
         best_ep = result["NDGC@k"][0]
@@ -180,13 +186,11 @@ for epoch in range(epoch+1,epoch+1+num_epochs):
     torch.save(checkpoint,f"Experiments/{file}/last_checkpoint.pth")
     torch.save(model.state_dict(),f"Experiments/{file}/last_weights.pt")
 
-    row_csv = [epoch,float(loss/n_batch)]+result["Hit@k"].tolist()+result["Recall@k"].tolist()+result["NDGC@k"].tolist()
+    row_csv = [epoch,float(loss/n_batch)]+result["Hit@k"].tolist()+result["Recall@k"].tolist()+result["NDGC@k"].tolist()+[t_epoch,load_data_time,forward_time,backward_time]
     writer.writerow(row_csv)
 
     
-    time_verbose = f"load Data time {load_data_time:.2f}s | {load_data_time/t_epoch:.2f}% of epoch ,\
-                     forward time {forward_time:.2f}s | {forward_time/t_epoch:.2f}% of epoch ,\
-                     backward time {backward_time:.2f}s | {backward_time/t_epoch:.2f}% of epoch" 
+    time_verbose = f"load Data time {load_data_time:.2f}s | {load_data_time/t_epoch:.2f}% of epoch \nforward time {forward_time:.2f}s|{forward_time/t_epoch:.2f}% from epoch  {forward_time/t_epoch:.2f}% of epoch ,\nbackward time {backward_time:.2f}s | {backward_time/t_epoch:.2f}% of epoch" 
 
     loss_verbose = f"Epoch {epoch}:loss={loss/n_batch}=[{regloss/n_batch}+{logloss/n_batch}]"
     metric = []
@@ -197,8 +201,10 @@ for epoch in range(epoch+1,epoch+1+num_epochs):
     
     if verbose > 0 :
         print(loss_verbose)
+
     if verbose > 1:
         print(test_verbose)
+
     if verbose > 2:
         print(time_verbose)
 

@@ -5,7 +5,7 @@ import numpy as np
 from torch_geometric.nn import MessagePassing
 from torch_geometric.data import HeteroData
 from torch_geometric.utils import degree
-
+from time import time
 
 
 
@@ -62,7 +62,6 @@ class NgcfLayer(MessagePassing):
 
     def message(self,x_j,x_i,etype,norm):
         if etype == "self_loop":
-      
             return self.W1(x_j)
         elif etype == "cross":
             return norm*self.W1(x_j)+self.W2(x_j*x_i)
@@ -105,7 +104,7 @@ class NGCF(torch.nn.Module):
         for i in range(self.num_layers-1):
             self.layers.append(NgcfLayer(layer_dim[i],layer_dim[i+1],norm_dict,dropout_rate=dropout))
         
-    def forward(self,users,pos_items,neg_items):
+    def forward(self):
         h_dict = {"user":self.emb_dict["user"],"item":self.emb_dict["item"]}
 
         user_embds = []
@@ -120,18 +119,15 @@ class NGCF(torch.nn.Module):
             h_dict = layer(self.graph,h_dict)
             user_embds.append(h_dict["user"])
             item_embds.append(h_dict["item"])
+            
         user_embds = torch.cat(user_embds,dim=1)
         item_embds = torch.cat(item_embds,dim=1)
-        
      
-    
 
-        user_certain_emb = user_embds[users,:]
-        pos_certain_emb = item_embds[pos_items,:]
-        neg_certain_emb = item_embds[neg_items,:]
+
         
 
-        return user_certain_emb,pos_certain_emb,neg_certain_emb
+        return user_embds,item_embds
     
     def rating(self, u_g_embeddings, pos_i_g_embeddings):
         return torch.matmul(u_g_embeddings, pos_i_g_embeddings.t())
